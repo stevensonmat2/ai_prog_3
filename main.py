@@ -41,6 +41,7 @@ for each episode:
     run x number of steps
 """
 import random
+from numpy import random
 from typing import List
 
 
@@ -49,6 +50,8 @@ EPISODE_COUNT = 5000
 STEP_COUNT = 200
 PROBABILITY = 0.2
 DISCOUNT = 0.9
+EPSILON = 0.1
+DISCOUNT_RATE = 0.9
 
 
 class QMatrix:
@@ -103,12 +106,14 @@ class Grid:
 class Robot:
     def __init__(self, xy: List, grid: Grid) -> None:
         self.current_xy = xy
-        self.current_state = grid.calculate_state(self.xy)
+        self.current_state = grid.calculate_state(self.current_xy)
         self.q_matrix = {}
+        # pick up can, move north, move south, move eats, move west
         self.actions = ["p", "n", "s", "e", "w"]
+        self.discount_rate = DISCOUNT_RATE
 
-    def progress_state(self, grid: Grid):
-        state_actions = []
+    def progress_state(self, grid: Grid, epsilon):
+        state_actions = {}
         state = None
         """
         calculaue all possible sucessor states
@@ -120,21 +125,76 @@ class Robot:
             state = self.current_state + action
             state_value = self.q_matrix.setdefault(state, 0)
             state_actions[state] = state_value
+            print(state, state_value)
 
-        selected_state_action = self.select_state_action(state_actions)
-        reward = self.calculate_reward(selected_state_action)
-        self.q_matrix[selected_state_action] += reward
-        self.xy = self.determine_next_position(selected_state_action)
+        selected_state_action = self.select_state_action(state_actions, epsilon)
+        successor_state_actions = self.calculate_successor_state_actions(selected_state_action, grid)
+        state_value = self.calculate_state_value(selected_state_action)
+        self.q_matrix[selected_state_action] += state_value
+        self.current_xy = self.determine_next_position(selected_state_action)
         self.current_state = grid.calculate_state(self.xy)
 
-    def select_state_action(self):
-        """find best reward or random select"""
-        pass
-    
-    def calculate_reward(self, state_action):
+    def select_state_action(self, state_actions, epsilon):
+        """find best reward or random select
+        1-e chance of selecting best option (ties broken at random)
+        else random select
+        """
+        selected_state_action = None
+        probability_of_best_choice = 1 - epsilon
+        random_choice = round(random.uniform(0, 1), 2)
+        print(f"random choice: {random_choice}")
+
+        if random_choice > probability_of_best_choice:
+            selected_state_action = random.choice(list(state_actions), 1)
+        else:
+            max_value = state_actions[max(state_actions, key=state_actions.get)]
+            print(max_value)
+            best_actions = [
+                state_action
+                for state_action in state_actions
+                if state_actions.get(state_action) == max_value
+            ]
+            print(best_actions)
+            selected_state_action = random.choice(best_actions, 1)
+
+        return selected_state_action
+
+    def calculate_successor_state_actions(self, state_action, grid: Grid):
+        action = state_action[-1]
+        if state_action[self.actions.index(action)] == "2":
+            pass
+
+    def calculate_state_value(self, state_action, grid: Grid):
         """calculate reward for selected state-action"""
+        current_value = self.q_matrix[state_action]
+        state_reward = self.calculate_state_reward(state_action, grid)
+        max_successor_value = self.calculate_max_succesor_value()
+        return state_reward + (self.discount_rate * max_successor_value - current_value)
+
+    def calculate_state_reward(self, state_action, grid: Grid):
+        state_reward = 0
+        action = state_action[-1]
+        if action == "p":
+            x = self.current_xy[0]
+            y = self.current_xy[1]
+
+            if grid[x][y] == "1":
+                state_reward = 10
+            else:
+                state_reward = -1
+        else:
+            """create grid method to determine if move is valid
+            if it is, return the state
+            else, """
+            if state_action[self.actions.index(action)] == "2":
+                state_reward = -5
+
+        return state_reward
+
+    def calculate_max_successor_value(self, state_action, grid: Grid):
+        
         pass
-    
+        
     def determine_next_position(self, state_action):
         """determine return xy resulting from selected state action"""
         pass
@@ -165,21 +225,25 @@ class Simulation:
 
 class Episode:
     def __init__(self) -> None:
+        self.epsilon = EPSILON
         self.grid = Grid(SIZE)
         self.step_count = STEP_COUNT
         self.total_reward = 0
 
     def run_episode(self, robot: Robot):
         start_xy = [random.randint(0, SIZE - 1), random.randint(0, SIZE - 1)]
-        robot.xy = start_xy
-        robot.current_state = self.grid.calculate_state(robot.xy)
+        robot.current_xy = start_xy
+        robot.current_state = self.grid.calculate_state(robot.current_xy)
 
         while self.step_count:
-            self.total_reward += robot.progress_state(self.grid)
+            self.total_reward += robot.progress_state(self.grid, self.epsilon)
             self.step_count -= 1
 
 
-rob = Robot()
-rob.current_xy = [0, 0]
-grid = Grid(SIZE)
-print(grid.calculate_state(rob.current_xy))
+# grid = Grid(SIZE)
+# rob = Robot([0,0], grid)
+# print(grid.calculate_state(rob.current_xy))
+# print(rob.progress_state(grid))
+
+episode = Episode()
+episode.run_episode(Robot([0, 0], episode.grid))
