@@ -53,6 +53,7 @@ STEP_COUNT = 200
 PROBABILITY = 0.2
 DISCOUNT = 0.9
 EPSILON = 0.1
+N_VALUE = 0.2
 DISCOUNT_RATE = 0.9
 
 
@@ -121,7 +122,7 @@ class Robot:
 
     def progress_state(self, grid: Grid, epsilon):
         state_actions = {}
-        state = None
+        state_action = None
         """
         calculaue all possible sucessor states
         check if any exist in q matrix
@@ -129,9 +130,9 @@ class Robot:
         if so, add state to list of possibler actions
         """
         for action in self.actions:
-            state = self.current_state + action
-            state_value = self.q_matrix.setdefault(state, 0)
-            state_actions[state] = state_value
+            state_action = self.current_state + action
+            state_value = self.q_matrix.setdefault(state_action, 0)
+            state_actions[state_action] = state_value
             # print(state, state_value)
 
         selected_state_action = self.select_state_action(state_actions, epsilon)
@@ -170,7 +171,6 @@ class Robot:
         return selected_state_action[0]
 
     def calculate_successor_state_actions(self, state_action, grid: Grid):
-
         move_modifiers = [
             # North, south, east, west
             [-1, 0],
@@ -196,14 +196,14 @@ class Robot:
 
         return state_actions
 
-        
-
     def calculate_state_value(self, state_action, grid: Grid):
         """calculate reward for selected state-action"""
         current_value = self.q_matrix[state_action]
         state_reward = self.calculate_state_reward(state_action, grid)
         max_successor_value = self.calculate_max_successor_value(state_action, grid)
-        return state_reward + (self.discount_rate * max_successor_value - current_value)
+        return state_reward + N_VALUE * (
+            self.discount_rate * max_successor_value - current_value
+        )
 
     def calculate_state_reward(self, state_action, grid: Grid):
         state_reward = 0
@@ -229,7 +229,6 @@ class Robot:
         return max_value
 
     def calculate_successor_state_actions(self, state_action, grid: Grid):
-
         state_actions = {}
         xy = self.determine_next_position(state_action)
         next_state = grid.calculate_state(xy)
@@ -240,7 +239,6 @@ class Robot:
             # print(state, state_value)
 
         return state_actions
-
 
     def determine_next_position(self, state_action):
         """determine return xy resulting from selected state action"""
@@ -256,9 +254,9 @@ class Robot:
         y = self.current_xy[1]
         if action != "p":
             if state_action[self.actions.index(action)] != "2":
-                x += move_modifiers[self.actions.index(action)-1][0]
-                y += move_modifiers[self.actions.index(action)-1][1]
-        
+                x += move_modifiers[self.actions.index(action) - 1][0]
+                y += move_modifiers[self.actions.index(action) - 1][1]
+
         return [x, y]
 
 
@@ -274,40 +272,69 @@ class Simulation:
     def __init__(self) -> None:
         self.robot = None
         self.episode_count = EPISODE_COUNT
-        self.episodes = []
+        self.training_episodes = []
+        self.test_episodes = []
+        self.epsilon = EPSILON
 
-    def run_simulation(self):
+    def run_full_simulation(self):
+        self.run_training_simulation()
+        self.run_test_simulation()
+
+    def run_training_simulation(self):
         count = self.episode_count
+        counter = 0
         while count:
-            episode = Episode()
+            if counter % 50 == 0:
+                self.epsilon = max((self.epsilon - 0.001), 0)
+            counter += 1
+
+            episode = Episode(self.epsilon)
             if not self.robot:
-                xy = [random.randint(0, SIZE), random.randint(0, SIZE)]
-                self.robot = Robot(xy, episode.grid)
+                self.robot = Robot([0, 0], episode.grid)
+
             episode.run_episode(self.robot)
-            self.episodes.append(episode)
+            self.training_episodes.append(episode)
             count -= 1
             if count % 100 == 0:
                 print(episode.total_reward)
 
+    def run_test_simulation(self):
+        print("test results")
+        self.epsilon = EPSILON
+        count = self.episode_count
+        while count:
+            episode = Episode(self.epsilon)
+            if not self.robot:
+                xy = [random.randint(0, SIZE), random.randint(0, SIZE)]
+                self.robot = Robot(xy, episode.grid)
+
+            episode.run_episode(self.robot)
+            self.test_episodes.append(episode)
+            count -= 1
+        sum = 0
+        for ep in self.test_episodes:
+            sum += ep.total_reward
+        print(sum / EPISODE_COUNT)
+
 
 class Episode:
-    def __init__(self) -> None:
-        self.epsilon = EPSILON
+    def __init__(self, epsilon) -> None:
+        self.epsilon = epsilon
         self.grid = Grid(SIZE)
         self.step_count = STEP_COUNT
         self.total_reward = 0
+        self.average_reward = 0
 
     def run_episode(self, robot: Robot):
         start_xy = [random.randint(0, SIZE - 1), random.randint(0, SIZE - 1)]
         robot.current_xy = start_xy
         robot.current_state = self.grid.calculate_state(robot.current_xy)
-        counter = 0
-        while self.step_count:
-            if counter % 50 == 0:
-                self.epsilon = max((self.epsilon - .001), 0)
+        count = self.step_count
+        while count:
             # sleep(0.3)
             self.total_reward += robot.progress_state(self.grid, self.epsilon)
-            self.step_count -= 1
+            count -= 1
+        self.average_reward = self.total_reward / self.step_count
 
 
 # grid = Grid(SIZE)
@@ -319,4 +346,4 @@ class Episode:
 # episode.run_episode(Robot([0, 0], episode.grid))
 
 simulation = Simulation()
-simulation.run_simulation()
+simulation.run_full_simulation()
