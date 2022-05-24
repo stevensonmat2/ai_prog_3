@@ -270,11 +270,11 @@ class Simulation:
         self.run_test_simulation()
 
     def run_training_simulation(self):
-        count = self.episode_count * 4
+        count = self.episode_count
         counter = 0
         while count:
             if counter % 50 == 0:
-                self.epsilon = max((self.epsilon - 0.001), 0)
+                self.epsilon = max((self.epsilon - 0.01), 0)
             counter += 1
 
             episode = Episode(self.epsilon)
@@ -286,6 +286,7 @@ class Simulation:
             count -= 1
             if count % 100 == 0:
                 print(episode.total_reward)
+        print(f"training avg: {sum(ep.total_reward for ep in self.training_episodes)/EPISODE_COUNT}")
 
     def run_test_simulation(self):
         print("test results")
