@@ -57,17 +57,6 @@ N_VALUE = 0.2
 DISCOUNT_RATE = 0.9
 
 
-class QMatrix:
-    def __init__(self) -> None:
-        self.sa_dict = self.initialize()
-
-    def __str__(self) -> str:
-        return self.sa_dict
-
-    def initialize(self):
-        return {}
-
-
 class Grid:
     def __init__(self, size) -> None:
         self.size = size
@@ -281,7 +270,7 @@ class Simulation:
         self.run_test_simulation()
 
     def run_training_simulation(self):
-        count = self.episode_count
+        count = self.episode_count * 4
         counter = 0
         while count:
             if counter % 50 == 0:
